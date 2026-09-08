@@ -1,0 +1,124 @@
+# UAE Health Insurance Pricing Model
+
+I built this model to demonstrate how a health insurer in the UAE 
+would approach end-to-end actuarial pricing — from raw policy data 
+all the way through to renewal rate recommendations and regulatory 
+compliance checks. Everything is built in R and structured the way 
+I would expect to see it in a real pricing team.
+
+## What the model does in plain English
+
+At its core the model answers three questions:
+
+**What should we charge?**
+A GLM framework estimates expected claim frequency and severity for 
+each member based on their age, sex, nationality, health condition, 
+diagnosis type, plan and network. Multiplying frequency by severity 
+gives the pure premium — the technical cost before loadings.
+
+**Are we charging enough right now?**
+The model compares actual retained claims against current gross 
+premium to produce loss ratios at portfolio, segment and policy 
+level. With a portfolio loss ratio of 94.5% against a target of 
+85%, the model correctly identifies the book is running above target.
+
+**What should we charge at renewal?**
+Each policy gets a credibility-weighted renewal rate using 2024 
+actual experience blended with the GLM estimate. Rate changes are 
+capped between -10% and +35% and checked against UAE regulatory 
+minimum premiums for 2026.
+
+## Key numbers
+- 268,801 members across 25,000 policies
+- Portfolio loss ratio: 94.5% on current premium basis
+- GLM validated on 2024 holdout — A/E ratio 0.993
+- Poisson dispersion ratio 1.022 — Poisson correctly retained
+- 4 diagnostic graphs and 11 CSV outputs
+
+## Why I built it this way
+
+A few decisions worth explaining:
+
+**Current vs future premium separation** — I keep two separate 
+premium columns throughout. Current premium is what the policyholder 
+pays in 2025 with no trend applied. Future premium applies the 
+11.3% medical trend and is used for renewal pricing, stress testing 
+and IFRS17 projections. Mixing these up is a common mistake that 
+makes loss ratios look misleadingly good or bad.
+
+**Multi-year training data** — Instead of pricing on one year of 
+data I generate 2022, 2023 and 2024 historical cohorts by sampling 
+and trend-deflating the 2025 base. The GLM trains on 2022-2023, 
+validates on 2024 and prices on 2025. This is how a real insurer 
+would approach it.
+
+**UAE market specifics** — The model reflects the actual regulatory 
+structure including DHA EBP minimum premiums, UAE federal basic 
+premium, three DHA network tiers, five nationality groups with 
+separate frequency and severity relativities, C-section shock at 
+the UAE 38% rate, and spouse minimum age of 23 with child 
+nationality following the father.
+
+## Key assumptions
+| Assumption | Value | Source |
+|---|---|---|
+| Medical trend | 11.3% | WTW 2026 Middle East Survey |
+| EBP minimum premium Dubai | AED 620 (2025) / AED 635 (2026) | DHA circular |
+| Federal basic premium | AED 310 (2025) / AED 320 (2026) | UAE Federal Decree Jan 2025 |
+| IFRS17 discount rate | 3.65% | CBUAE base rate Jan 2026 |
+| Reinsurance retention | AED 35,000 per member | Treaty design |
+| Reinsurance ceded share | 90% of excess | Treaty design |
+
+## How to run it
+1. Open RStudio and set this folder as your working directory
+2. Run Package setup.R first — this installs and loads everything needed
+3. Then run each file in the order listed below, or use 
+   source("main.R") to run the whole model at once
+4. All outputs will appear in UAE_Health_Pricing_Model_Outputs/
+
+## Files in order
+| File | What it does |
+|---|---|
+| Package setup.R | Installs tidyverse, broom and MASS |
+| Governance and Assumptions.R | Every assumption in one place — change a value here and it flows through the whole model |
+| Generate 2025 base portfolio.R | Creates 25,000 synthetic policies |
+| Member expansion - 2025 portfolio.R | Expands into members — spouse opposite sex to employee, child nationality follows father |
+| Diagnosis and Prior claim.R | Assigns diagnosis groups and condition flags |
+| Frequency effect's and claim count.R | Simulates claim counts using Poisson with nationality and region effects |
+| Severity effect and gross claim amount.R | Simulates claim costs including C-section shock |
+| Benefit Design and Reinsurance.R | Deductibles, coinsurance, claim caps and reinsurance |
+| Data Quality + conversion to Health model.R | Filters and factors the data for GLM |
+| Generating historical Cohorts 2022 - 2024.R | Builds training data by deflating 2025 claims back in time |
+| Train & Validate & Price split.R | Splits by year — 2022-23 train, 2024 validate, 2025 price |
+| Frequency GLM.R | Poisson GLM with age-sex interaction and overdispersion check |
+| Severity GLM.R | Gamma GLM with diagnosis group ranking validation |
+| Apply pricing to 2025 portfolio.R | Produces current and future gross premium with regulatory floors |
+| Portfolio and Segment profitability.R | Loss ratios, segment flags and two graphs |
+| Credibility renewal pricing.R | Square-root credibility renewal with 2024 prior year experience |
+| Anti Selection and Diagnosis mix.R | Identifies which segments are attracting bad risks and what is driving costs |
+
+## Graphs
+| Graph | What it shows |
+|---|---|
+| graph_01_lr_heatmap.png | Loss ratio by plan type and region — green to red scale |
+| graph_02_current_vs_future_premium.png | Side by side current vs future premium by plan type |
+| graph_03_renewal_distribution.png | How many policies are getting each level of rate change |
+| graph_04_credibility_curve.png | Credibility Z plotted against combined exposure with theoretical curve |
+
+## Honest limitations
+The data is synthetic — I generated it to demonstrate the 
+methodology rather than to produce real market rates. In a 
+production environment you would replace the synthetic data with 
+actual policy, claims and exposure extracts. The nationality 
+relativities and development patterns are based on publicly 
+available UAE market information and would need calibrating against 
+real portfolio experience.
+
+## About
+I am an actuarial analyst with IFoA exams CS1, CS2, CM1, CM2, 
+CB1 and CB2, and a year of experience in health and life pricing 
+at Aviva Life and Pensions Ireland. I built this model as part of 
+my preparation for health actuarial roles in the UAE market.
+
+LinkedIn: linkedin.com/in/udit-agarwal-434a02233
+Open to opportunities in Dubai and the wider UAE.
